@@ -2,102 +2,104 @@
 <html lang="zh-HK">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>上學小幫手 - School Bag Game</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>上學小幫手</title>
     <style>
-        :root {
-            --bg-color: #e0f7fa;
-        }
+        :root { --bg-color: #e0f7fa; }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
         body, html {
             margin: 0; padding: 0; width: 100%; height: 100%;
             overflow: hidden; font-family: 'Arial', sans-serif;
             background-color: var(--bg-color);
-            touch-action: none; /* Prevents scrolling/zooming on mobile */
+            position: fixed; /* Prevents bouncing/scrolling on iOS */
         }
 
+        /* Orientation Logic */
         #orientation-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: #333; color: white; display: flex;
             flex-direction: column; align-items: center; justify-content: center;
-            z-index: 1000; text-align: center; visibility: hidden;
+            z-index: 2000; text-align: center; display: none;
         }
 
-        /* Show overlay if portrait */
         @media screen and (orientation: portrait) {
-            #orientation-overlay { visibility: visible; }
+            #orientation-overlay { display: flex; }
         }
 
-        #welcome-page, #congrats-page {
-            position: absolute; width: 100%; height: 100%;
-            display: flex; flex-direction: column; align-items: center;
-            justify-content: center; background: var(--bg-color); z-index: 50;
-        }
-
-        .btn-start {
-            padding: 20px 40px; font-size: 24px; cursor: pointer;
-            background: #4caf50; color: white; border: none; border-radius: 50px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
-        }
-
+        /* Container using dynamic viewport height for Safari */
         #game-container {
             display: none; width: 100vw; height: 100vh;
-            position: relative; overflow: hidden;
-            background: url('assets/images/classroom_bg.jpg') center/cover; /* Optional background */
+            height: 100dvh; /* Dynamic viewport height fix for mobile bars */
+            position: relative;
         }
 
-        #school-bag {
-            position: absolute; left: 5%; top: 20%;
-            width: 35%; height: 65%;
-            background: url('assets/images/school_bag.png') no-repeat center/contain;
+        /* The School Bag - Changed to <img> tag for better reliability */
+        #school-bag-container {
+            position: absolute; left: 5%; top: 15%;
+            width: 40%; height: 70%;
             display: flex; align-items: center; justify-content: center;
+            border: 2px dashed rgba(0,0,0,0.1); /* Visual guide */
+            border-radius: 20px;
         }
 
+        #school-bag-img {
+            width: 100%; height: 100%;
+            object-fit: contain;
+        }
+
+        /* The Items */
         .item {
             position: absolute; width: 100px; height: 100px;
             cursor: grab; touch-action: none;
             display: flex; flex-direction: column; align-items: center;
-            z-index: 10;
+            z-index: 100;
         }
 
-        .item img {
-            width: 100%; height: 80%; object-fit: contain;
-            pointer-events: none; /* Allows touch to pass to parent div */
+        .item img { width: 85px; height: 85px; object-fit: contain; pointer-events: none; }
+        .item span { font-size: 14px; font-weight: bold; background: white; padding: 2px 6px; border-radius: 8px; margin-top: 4px; border: 1px solid #ccc; }
+
+        .item.dragging { opacity: 0.8; transform: scale(1.2); z-index: 1000; }
+        .item.returning { transition: all 0.4s ease-out; }
+
+        #welcome-page, #congrats-page {
+            position: fixed; width: 100%; height: 100%;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            background: var(--bg-color); z-index: 1500;
         }
 
-        .item span {
-            font-size: 14px; font-weight: bold; background: white; 
-            padding: 2px 5px; border-radius: 5px;
+        .btn-start {
+            padding: 20px 50px; font-size: 28px; cursor: pointer;
+            background: #4caf50; color: white; border: none; border-radius: 50px;
+            box-shadow: 0 6px 0 #2e7d32; transition: 0.1s;
         }
+        .btn-start:active { transform: translateY(4px); box-shadow: none; }
 
-        .item.dragging { opacity: 0.7; transform: scale(1.2); z-index: 100; }
-        .item.returning { transition: all 0.5s ease-out; }
-
-        #ui-bar {
-            position: absolute; top: 10px; width: 100%;
-            text-align: center; font-size: 24px; font-weight: bold;
-            color: #004d40; text-shadow: 1px 1px white;
-        }
+        #ui-bar { position: absolute; top: 10px; width: 100%; text-align: center; font-size: 22px; font-weight: bold; pointer-events: none; }
     </style>
 </head>
 <body>
 
-    <div id="orientation-overlay"><h1>請將手機/iPad橫轉<br>Please Rotate to Landscape</h1></div>
+    <div id="orientation-overlay"><h2>🔄 請轉橫螢幕遊玩<br>Please Rotate to Landscape</h2></div>
 
     <div id="welcome-page">
-        <h1>🎒 上學小幫手</h1>
-        <p>聽指令，把正確的物品放進書包裡！</p>
-        <button class="btn-start" onclick="startGame()">開始遊戲 START</button>
+        <h1 style="font-size: 40px;">🎒 上學小幫手</h1>
+        <p>聽指令，把正確的物品放進書包！</p>
+        <button class="btn-start" onclick="startGame()">開始遊戲</button>
     </div>
 
     <div id="game-container">
         <div id="ui-bar">進度: <span id="trial-count">0</span> / 10</div>
-        <div id="school-bag"></div>
+        
+        <div id="school-bag-container">
+            <img id="school-bag-img" src="assets/images/school_bag.png">
+        </div>
+
         <div id="items-area"></div>
     </div>
 
     <div id="congrats-page" style="display:none;">
-        <h1>🎉 太棒了！你好叻呀！</h1>
+        <h1>🎉 你真棒！你好叻呀！</h1>
         <button class="btn-start" onclick="location.reload()">再玩一次</button>
     </div>
 
@@ -116,38 +118,35 @@
         let lastTarget = null;
         let history = [];
 
-        function playSound(filename) {
-            const audio = new Audio(`assets/audio/${filename}`);
-            audio.play().catch(e => console.log("Audio play blocked or missing"));
+        function playSound(file) {
+            const a = new Audio(`assets/audio/${file}`);
+            a.play().catch(() => {}); // Catch Safari's auto-play block
         }
 
         function startGame() {
             document.getElementById('welcome-page').style.display = 'none';
             document.getElementById('game-container').style.display = 'block';
             initItems();
-            setTimeout(nextTrial, 500);
+            setTimeout(nextTrial, 800);
         }
 
         function initItems() {
             const area = document.getElementById('items-area');
+            area.innerHTML = '';
             words.forEach((item, index) => {
                 const div = document.createElement('div');
                 div.className = 'item';
                 div.id = item.id;
                 
-                // Randomize initial positions on the right side
-                const top = (10 + (index * 14)) + "%";
+                // Position logic for iPad landscape
+                const top = (15 + (index * 13)) + "%";
                 const left = (55 + (Math.random() * 25)) + "%";
                 div.style.top = top;
                 div.style.left = left;
                 div.dataset.origTop = top;
                 div.dataset.origLeft = left;
 
-                div.innerHTML = `
-                    <img src="assets/images/${item.file}" alt="${item.text}">
-                    <span>${item.text}</span>
-                `;
-                
+                div.innerHTML = `<img src="assets/images/${item.file}"><span>${item.text}</span>`;
                 setupDraggable(div);
                 area.appendChild(div);
             });
@@ -155,84 +154,64 @@
 
         function nextTrial() {
             if (trials >= 10) {
-                showCongrats();
+                document.getElementById('game-container').style.display = 'none';
+                document.getElementById('congrats-page').style.display = 'flex';
+                playSound('congrats_fanfare.mp3');
                 return;
             }
 
             let available = words.filter(w => w.id !== (lastTarget ? lastTarget.id : null));
-            
-            // Ensure all items used at least once in first 6 trials
-            if (trials < 6) {
-                available = available.filter(w => !history.includes(w.id));
-            }
+            if (trials < 6) available = available.filter(w => !history.includes(w.id));
 
             currentTarget = available[Math.floor(Math.random() * available.length)];
             lastTarget = currentTarget;
             history.push(currentTarget.id);
             
-            // Play voice instruction (e.g., voice_pencil.mp3)
             playSound(`voice_${currentTarget.id}.mp3`);
             document.getElementById('trial-count').innerText = trials + 1;
         }
 
         function setupDraggable(el) {
-            let startX, startY, initialLeft, initialTop;
+            let startX, startY, initL, initT;
             
             el.addEventListener('touchstart', (e) => {
-                const touch = e.touches[0];
+                const t = e.touches[0];
                 el.classList.add('dragging');
-                startX = touch.clientX;
-                startY = touch.clientY;
-                initialLeft = el.offsetLeft;
-                initialTop = el.offsetTop;
+                startX = t.clientX; startY = t.clientY;
+                initL = el.offsetLeft; initT = el.offsetTop;
             });
 
             el.addEventListener('touchmove', (e) => {
-                const touch = e.touches[0];
-                const dx = touch.clientX - startX;
-                const dy = touch.clientY - startY;
-                el.style.left = (initialLeft + dx) + 'px';
-                el.style.top = (initialTop + dy) + 'px';
+                const t = e.touches[0];
+                el.style.left = (initL + (t.clientX - startX)) + 'px';
+                el.style.top = (initT + (t.clientY - startY)) + 'px';
             });
 
-            el.addEventListener('touchend', (e) => {
+            el.addEventListener('touchend', () => {
                 el.classList.remove('dragging');
-                checkDrop(el);
+                const bag = document.getElementById('school-bag-container').getBoundingClientRect();
+                const item = el.getBoundingClientRect();
+
+                const isOver = !(item.right < bag.left || item.left > bag.right || 
+                                 item.bottom < bag.top || item.top > bag.bottom);
+
+                if (isOver && el.id === currentTarget.id) {
+                    playSound('correct.mp3');
+                    trials++;
+                    resetPos(el);
+                    setTimeout(nextTrial, 1200);
+                } else {
+                    if (isOver) playSound('incorrect.mp3');
+                    resetPos(el);
+                }
             });
         }
 
-        function checkDrop(el) {
-            const bag = document.getElementById('school-bag').getBoundingClientRect();
-            const item = el.getBoundingClientRect();
-
-            // Collision detection
-            const isOverlapping = !(item.right < bag.left || item.left > bag.right || 
-                                     item.bottom < bag.top || item.top > bag.bottom);
-
-            if (isOverlapping && el.id === currentTarget.id) {
-                playSound('correct.mp3');
-                trials++;
-                resetItem(el);
-                setTimeout(nextTrial, 1200);
-            } else if (isOverlapping && el.id !== currentTarget.id) {
-                playSound('incorrect.mp3');
-                resetItem(el);
-            } else {
-                resetItem(el);
-            }
-        }
-
-        function resetItem(el) {
+        function resetPos(el) {
             el.classList.add('returning');
             el.style.top = el.dataset.origTop;
             el.style.left = el.dataset.origLeft;
-            setTimeout(() => el.classList.remove('returning'), 500);
-        }
-
-        function showCongrats() {
-            playSound('congrats_fanfare.mp3');
-            document.getElementById('game-container').style.display = 'none';
-            document.getElementById('congrats-page').style.display = 'flex';
+            setTimeout(() => el.classList.remove('returning'), 400);
         }
     </script>
 </body>
