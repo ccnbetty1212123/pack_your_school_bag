@@ -9,27 +9,43 @@
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; outline: none; }
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; font-family: 'Arial', sans-serif; background-color: var(--bg-color); position: fixed; touch-action: none; }
         
-        #orientation-overlay { position: fixed; inset: 0; background: #333; color: white; display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 2000; text-align: center; }
+        #orientation-overlay { position: fixed; inset: 0; background: #333; color: white; display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 2000; }
         @media screen and (orientation: portrait) { #orientation-overlay { display: flex; } }
 
         #welcome-page, #congrats-page { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: var(--bg-color); z-index: 1500; }
         #game-container { display: none; width: 100vw; height: 100dvh; position: relative; }
         
-        #school-bag-container { position: absolute; left: 5%; top: 15%; width: 35%; height: 75%; display: flex; align-items: center; justify-content: center; pointer-events: none; }
-        #school-bag-img { width: 100%; height: 100%; object-fit: contain; background: rgba(255,255,255,0.4); border-radius: 20px; }
+        /* The Bag Area */
+        #school-bag-area { 
+            position: absolute; left: 5%; top: 15%; width: 40%; height: 75%; 
+            display: flex; align-items: center; justify-content: center;
+        }
+        #school-bag-img { width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
+        
+        /* Visual indicator of where to drop */
+        #drop-target { 
+            position: absolute; width: 80%; height: 80%; 
+            border: 4px dashed rgba(76, 175, 80, 0.3); border-radius: 30px; 
+            pointer-events: none; 
+        }
 
-        #items-grid { position: absolute; right: 5%; top: 15%; width: 52%; height: 75%; display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(2, 1fr); gap: 10px; }
-        .item-slot { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.1); border-radius: 12px; }
+        #items-grid { position: absolute; right: 5%; top: 15%; width: 50%; height: 75%; display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(2, 1fr); gap: 10px; }
+        .item-slot { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
 
-        .item { width: 100px; height: 125px; cursor: grab; touch-action: none; display: flex; flex-direction: column; align-items: center; justify-content: center; background: white; border-radius: 12px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); z-index: 100; }
-        .item img { width: 75px; height: 75px; object-fit: contain; pointer-events: none; }
+        .item { 
+            width: 110px; height: 135px; cursor: grab; touch-action: none; 
+            display: flex; flex-direction: column; align-items: center; justify-content: center; 
+            background: white; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); 
+            z-index: 100; position: relative;
+        }
+        .item img { width: 80px; height: 80px; object-fit: contain; pointer-events: none; }
         .item span { font-size: 14px; font-weight: bold; margin-top: 5px; pointer-events: none; }
 
-        .dragging { opacity: 0.85; transform: scale(1.1); z-index: 1000 !important; position: fixed !important; pointer-events: none; }
-        .returning { transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        .dragging { opacity: 0.9; transform: scale(1.1); z-index: 1000 !important; position: fixed !important; pointer-events: none; }
+        .returning { transition: all 0.3s ease-out; }
 
-        .btn-start { padding: 25px 70px; font-size: 30px; cursor: pointer; background: #4caf50; color: white; border: none; border-radius: 50px; font-weight: bold; box-shadow: 0 5px 0 #2e7d32; }
-        #ui-bar { position: absolute; top: 20px; width: 100%; text-align: center; font-size: 24px; font-weight: bold; color: #00796b; }
+        .btn-start { padding: 25px 70px; font-size: 30px; cursor: pointer; background: #4caf50; color: white; border: none; border-radius: 50px; font-weight: bold; }
+        #ui-bar { position: absolute; top: 20px; width: 100%; text-align: center; font-size: 24px; font-weight: bold; color: #00796b; z-index: 10; }
     </style>
 </head>
 <body>
@@ -43,8 +59,9 @@
 
     <div id="game-container">
         <div id="ui-bar">進度: <span id="trial-count">0</span> / 10</div>
-        <div id="school-bag-container">
+        <div id="school-bag-area">
             <img id="school-bag-img" src="assets/images/school_bag.png">
+            <div id="drop-target"></div>
         </div>
         <div id="items-grid"></div>
     </div>
@@ -55,7 +72,6 @@
     </div>
 
     <script>
-        // Data strictly mapped to your folder image names
         const words = [
             { id: 'bag', text: '功課袋', file: 'homework_bag.jpg' },
             { id: 'pens', text: '顏色筆', file: 'colored_pencils.png' },
@@ -69,18 +85,18 @@
         let currentTarget = null;
         let lastTarget = null;
         let history = [];
-        let isMoving = false;
+        let isBusy = false;
 
         function playSound(file) {
-            const a = new Audio(`assets/audio/${file}`);
-            a.play().catch(e => console.log("Audio play failed: " + file));
+            const audio = new Audio(`assets/audio/${file}`);
+            audio.play().catch(err => console.error("Audio error:", file));
         }
 
         function initGame() {
-            // Unlock audio for iPad/Safari
+            // Aggressive unlock for iOS
             const unlock = new Audio('assets/audio/correct.mp3');
-            unlock.volume = 0;
-            unlock.play().then(() => unlock.pause()).catch(() => {});
+            unlock.volume = 0.01;
+            unlock.play().then(() => { unlock.pause(); unlock.currentTime = 0; });
 
             document.getElementById('welcome-page').style.display = 'none';
             document.getElementById('game-container').style.display = 'block';
@@ -118,18 +134,56 @@
             
             document.getElementById('trial-count').innerText = trials + 1;
             
-            // Matches your voice_ filenames
             setTimeout(() => {
                 playSound(`voice_${currentTarget.id}.mp3`);
-                isMoving = false;
+                isBusy = false;
             }, 600);
         }
 
         function setupDrag(el, slot) {
             let startX, startY;
 
-            const onStart = (e) => {
-                if (isMoving) return;
+            const moveHandler = (e) => {
+                if (!el.classList.contains('dragging')) return;
+                const touch = e.touches[0];
+                el.style.left = (touch.clientX - startX) + 'px';
+                el.style.top = (touch.clientY - startY) + 'px';
+                e.preventDefault();
+            };
+
+            const endHandler = () => {
+                if (!el.classList.contains('dragging')) return;
+                el.classList.remove('dragging');
+                
+                // Use the dedicated drop-target div for coordinates
+                const targetRect = document.getElementById('drop-target').getBoundingClientRect();
+                const itemRect = el.getBoundingClientRect();
+                
+                const centerX = itemRect.left + (itemRect.width / 2);
+                const centerY = itemRect.top + (itemRect.height / 2);
+
+                const isInside = (
+                    centerX > targetRect.left && centerX < targetRect.right &&
+                    centerY > targetRect.top && centerY < targetRect.bottom
+                );
+
+                if (isInside && el.id === currentTarget.id) {
+                    isBusy = true;
+                    playSound('correct.mp3');
+                    trials++;
+                    resetToSlot(el, slot);
+                    setTimeout(nextTrial, 1500);
+                } else {
+                    if (isInside) playSound('incorrect.mp3');
+                    resetToSlot(el, slot);
+                }
+                
+                window.removeEventListener('touchmove', moveHandler);
+                window.removeEventListener('touchend', endHandler);
+            };
+
+            el.addEventListener('touchstart', (e) => {
+                if (isBusy) return;
                 const touch = e.touches[0];
                 const rect = el.getBoundingClientRect();
                 startX = touch.clientX - rect.left;
@@ -140,45 +194,10 @@
                 el.style.left = rect.left + 'px';
                 el.style.top = rect.top + 'px';
                 el.classList.add('dragging');
-            };
 
-            const onMove = (e) => {
-                if (!el.classList.contains('dragging')) return;
-                const touch = e.touches[0];
-                el.style.left = (touch.clientX - startX) + 'px';
-                el.style.top = (touch.clientY - startY) + 'px';
-                e.preventDefault();
-            };
-
-            const onEnd = () => {
-                if (!el.classList.contains('dragging')) return;
-                el.classList.remove('dragging');
-                
-                const bagRect = document.getElementById('school-bag-img').getBoundingClientRect();
-                const itemRect = el.getBoundingClientRect();
-                const centerX = itemRect.left + (itemRect.width / 2);
-                const centerY = itemRect.top + (itemRect.height / 2);
-
-                const isInside = (
-                    centerX > bagRect.left && centerX < bagRect.right &&
-                    centerY > bagRect.top && centerY < bagRect.bottom
-                );
-
-                if (isInside && el.id === currentTarget.id) {
-                    isMoving = true;
-                    playSound('correct.mp3');
-                    trials++;
-                    resetToSlot(el, slot);
-                    setTimeout(nextTrial, 1500);
-                } else {
-                    if (isInside) playSound('incorrect.mp3');
-                    resetToSlot(el, slot);
-                }
-            };
-
-            el.addEventListener('touchstart', onStart);
-            window.addEventListener('touchmove', onMove, { passive: false });
-            window.addEventListener('touchend', onEnd);
+                window.addEventListener('touchmove', moveHandler, { passive: false });
+                window.addEventListener('touchend', endHandler);
+            });
         }
 
         function resetToSlot(el, slot) {
@@ -193,7 +212,7 @@
                 el.style.left = '0';
                 el.style.top = '0';
                 slot.appendChild(el);
-            }, 400);
+            }, 300);
         }
     </script>
 </body>
