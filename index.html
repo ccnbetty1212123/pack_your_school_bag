@@ -3,122 +3,46 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>上學小幫手</title>
+    <title>中文詞彙練習</title>
     <style>
-        :root {
-            --bg-color: #e0f7fa;
-            --primary-btn: #ff6b6b;
-        }
-
-        body, html {
-            margin: 0; padding: 0;
-            width: 100vw; height: 100vh;
-            overflow: hidden;
-            font-family: 'PingFang HK', 'Microsoft JhengHei', sans-serif;
-            background-color: var(--bg-color);
-            touch-action: none; /* Prevents scrolling/zooming during play */
-        }
-
-        /* Orientation Logic */
-        #orientation-overlay {
-            position: fixed; inset: 0; background: #333; color: white;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            z-index: 9999; text-align: center; padding: 20px;
-        }
-
-        @media screen and (orientation: landscape) {
-            #orientation-overlay { display: none; }
-        }
-
-        /* Screens */
-        .screen {
-            position: absolute; inset: 0;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            transition: opacity 0.4s;
-        }
-
+        :root { --bg: #e0f7fa; --btn: #ff6b6b; }
+        body, html { margin: 0; padding: 0; width: 100vw; height: 100vh; overflow: hidden; font-family: sans-serif; background: var(--bg); touch-action: none; }
+        #orientation-overlay { position: fixed; inset: 0; background: #333; color: white; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 9999; text-align: center; }
+        @media screen and (orientation: landscape) { #orientation-overlay { display: none; } }
+        .screen { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
         .hidden { display: none !important; }
-
-        button {
-            padding: 15px 40px; font-size: 28px; cursor: pointer;
-            background-color: var(--primary-btn); color: white;
-            border: none; border-radius: 50px; box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-            transition: transform 0.2s;
-        }
-
-        button:active { transform: scale(0.95); }
-
-        /* Game Layout */
-        #game-layout {
-            display: flex; width: 100%; height: 100%;
-            align-items: center; justify-content: space-around;
-            padding: 10px; box-sizing: border-box;
-        }
-
-        #drop-zone {
-            flex: 1; display: flex; justify-content: center; align-items: center;
-        }
-
-        #school-bag {
-            width: 80%; max-width: 350px;
-            pointer-events: none; /* Image doesn't block dragging */
-        }
-
-        #items-grid {
-            flex: 1; display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            grid-template-rows: repeat(2, 1fr);
-            gap: 20px; width: 50%; height: 80%;
-        }
-
-        .item-container {
-            display: flex; justify-content: center; align-items: center;
-            position: relative;
-        }
-
-        .draggable-item {
-            width: 110px; height: 110px;
-            object-fit: contain; cursor: grab;
-            z-index: 10; touch-action: none;
-        }
-
-        .dragging { opacity: 0.8; transform: scale(1.2); cursor: grabbing; z-index: 100; }
-
-        #progress-bar {
-            position: absolute; top: 10px; font-size: 22px; font-weight: bold; color: #00796b;
-        }
+        button { padding: 15px 40px; font-size: 28px; cursor: pointer; background: var(--btn); color: white; border: none; border-radius: 50px; }
+        #game-layout { display: flex; width: 100%; height: 100%; align-items: center; justify-content: space-around; }
+        #drop-zone { flex: 1; display: flex; justify-content: center; }
+        #school-bag { width: 80%; max-width: 320px; pointer-events: none; }
+        #items-grid { flex: 1; display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(2, 1fr); gap: 15px; width: 50%; height: 80%; }
+        .item-container { display: flex; justify-content: center; align-items: center; }
+        .draggable-item { width: 110px; height: 110px; object-fit: contain; z-index: 10; touch-action: none; transition: transform 0.1s; }
+        .dragging { opacity: 0.7; transform: scale(1.3) !important; z-index: 100; transition: none; }
+        #progress { position: absolute; top: 15px; font-size: 22px; font-weight: bold; color: #00796b; }
     </style>
 </head>
 <body>
 
-    <div id="orientation-overlay">
-        <h2>請將螢幕橫置以進行遊戲</h2>
-        <p>Please turn your screen horizontal to play.</p>
-    </div>
+    <div id="orientation-overlay"><h2>請將螢幕橫置以進行遊戲</h2></div>
 
     <div id="welcome-screen" class="screen">
-        <h1 style="color: #00796b; font-size: 40px;">上學小幫手</h1>
-        <button id="btn-start">開始遊戲 (Start)</button>
+        <h1 style="color: #00796b;">中文詞彙練習</h1>
+        <button id="btn-start">開始遊戲</button>
     </div>
 
     <div id="game-screen" class="screen hidden">
-        <div id="progress-bar">第 <span id="current-count">1</span> / 10 題</div>
+        <div id="progress">第 <span id="current-count">1</span> / 10 題</div>
         <div id="game-layout">
-            <div id="drop-zone">
-                <img id="school-bag" src="assets/images/school_bag.png" alt="書包">
-            </div>
+            <div id="drop-zone"><img id="school-bag" src="assets/images/school_bag.png"></div>
             <div id="items-grid"></div>
         </div>
     </div>
 
     <div id="congrats-screen" class="screen hidden">
-        <h1 style="color: #d32f2f; font-size: 50px;">恭喜你！完成練習！</h1>
+        <h1>太棒了！</h1>
         <button onclick="location.reload()">再玩一次</button>
     </div>
-
-    <audio id="audio-correct" src="assets/audio/correct.mp3"></audio>
-    <audio id="audio-incorrect" src="assets/audio/incorrect.mp3"></audio>
-    <audio id="audio-fanfare" src="assets/audio/congrats_fanfare.mp3"></audio>
 
     <script>
         const items = [
@@ -133,105 +57,99 @@
         let trials = [];
         let currentTrialIndex = 0;
         let currentTarget = null;
+        let isWaiting = false;
+        let currentAudio = null;
 
-        // --- Game Setup ---
+        // Global sound effect players
+        const sndCorrect = new Audio('assets/audio/correct.mp3');
+        const sndIncorrect = new Audio('assets/audio/incorrect.mp3');
+        const sndFanfare = new Audio('assets/audio/congrats_fanfare.mp3');
+
+        function stopAllAudio() {
+            if (currentAudio) { currentAudio.pause(); currentAudio.currentTime = 0; }
+            sndCorrect.pause(); sndCorrect.currentTime = 0;
+            sndIncorrect.pause(); sndIncorrect.currentTime = 0;
+        }
+
+        function playVoice(fileName) {
+            stopAllAudio();
+            currentAudio = new Audio(`assets/audio/${fileName}`);
+            currentAudio.play().catch(e => console.log("Audio play blocked by browser"));
+        }
 
         function setupGame() {
-            // Generate 10 trials: ensure all 6 items appear at least once
-            // and no item appears twice in a row.
-            let tempPool = [...items].sort(() => Math.random() - 0.5); // First 6 unique
-            trials = [...tempPool];
-
+            // Guarantee all 6 items appear, then fill to 10 with no repeats
+            let shuffled = [...items].sort(() => Math.random() - 0.5);
+            trials = [...shuffled];
             while (trials.length < 10) {
-                let lastItem = trials[trials.length - 1];
-                let possible = items.filter(i => i.id !== lastItem.id);
-                let next = possible[Math.floor(Math.random() * possible.length)];
-                trials.push(next);
+                let last = trials[trials.length - 1];
+                let options = items.filter(i => i.id !== last.id);
+                trials.push(options[Math.floor(Math.random() * options.length)]);
             }
         }
 
         function startTrial() {
             if (currentTrialIndex >= 10) {
                 showScreen('congrats-screen');
-                document.getElementById('audio-fanfare').play();
+                sndFanfare.play();
                 return;
             }
-
+            isWaiting = false;
             currentTarget = trials[currentTrialIndex];
             document.getElementById('current-count').innerText = currentTrialIndex + 1;
-            
-            // Play target voice
-            new Audio(`assets/audio/${currentTarget.voice}`).play();
-
             renderGrid();
+            
+            // Short delay before voice to let the UI settle
+            setTimeout(() => { playVoice(currentTarget.voice); }, 300);
         }
 
         function renderGrid() {
             const grid = document.getElementById('items-grid');
             grid.innerHTML = '';
-            
-            // Randomize grid positions every trial
-            let gridItems = [...items].sort(() => Math.random() - 0.5);
-
-            gridItems.forEach(item => {
+            [...items].sort(() => Math.random() - 0.5).forEach(item => {
                 const container = document.createElement('div');
                 container.className = 'item-container';
-                
                 const img = document.createElement('img');
                 img.src = `assets/images/${item.img}`;
                 img.className = 'draggable-item';
                 img.dataset.id = item.id;
-                
                 initDrag(img);
                 container.appendChild(img);
                 grid.appendChild(container);
             });
         }
 
-        // --- Drag & Drop Interaction ---
-
         function initDrag(el) {
-            let startX, startY, initialX, initialY;
-
+            let startX, startY;
             const onStart = (e) => {
+                if(isWaiting) return;
                 const pos = e.type.includes('touch') ? e.touches[0] : e;
-                startX = pos.clientX;
-                startY = pos.clientY;
-                const rect = el.getBoundingClientRect();
-                initialX = rect.left;
-                initialY = rect.top;
+                startX = pos.clientX; startY = pos.clientY;
                 el.classList.add('dragging');
+                if (currentAudio) currentAudio.pause(); // Stop voice if they start dragging
             };
-
             const onMove = (e) => {
                 if (!el.classList.contains('dragging')) return;
                 const pos = e.type.includes('touch') ? e.touches[0] : e;
-                const dx = pos.clientX - startX;
-                const dy = pos.clientY - startY;
-                el.style.transform = `translate(${dx}px, ${dy}px) scale(1.2)`;
+                el.style.transform = `translate(${pos.clientX - startX}px, ${pos.clientY - startY}px)`;
             };
-
             const onEnd = (e) => {
                 if (!el.classList.contains('dragging')) return;
                 el.classList.remove('dragging');
+                
+                const bag = document.getElementById('school-bag').getBoundingClientRect();
+                const rect = el.getBoundingClientRect();
+                const hit = !(rect.right < bag.left || rect.left > bag.right || rect.bottom < bag.top || rect.top > bag.bottom);
 
-                const bagRect = document.getElementById('school-bag').getBoundingClientRect();
-                const itemRect = el.getBoundingClientRect();
-
-                // Simple collision check
-                const isOverBag = !(itemRect.right < bagRect.left || 
-                                    itemRect.left > bagRect.right || 
-                                    itemRect.bottom < bagRect.top || 
-                                    itemRect.top > bagRect.bottom);
-
-                if (isOverBag && el.dataset.id === currentTarget.id) {
-                    // Correct!
-                    document.getElementById('audio-correct').play();
+                if (hit && el.dataset.id === currentTarget.id) {
+                    isWaiting = true;
+                    sndCorrect.play();
                     currentTrialIndex++;
-                    setTimeout(startTrial, 1200);
+                    setTimeout(startTrial, 1800); // Wait for sound to finish
                 } else {
-                    // Wrong or missed
-                    if (isOverBag) document.getElementById('audio-incorrect').play();
+                    if (hit) {
+                        sndIncorrect.play();
+                    }
                     el.style.transform = 'translate(0, 0)';
                 }
             };
@@ -239,13 +157,10 @@
             el.addEventListener('mousedown', onStart);
             window.addEventListener('mousemove', onMove);
             window.addEventListener('mouseup', onEnd);
-
             el.addEventListener('touchstart', onStart, {passive: false});
             window.addEventListener('touchmove', onMove, {passive: false});
             window.addEventListener('touchend', onEnd);
         }
-
-        // --- Navigation ---
 
         function showScreen(id) {
             document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
@@ -253,11 +168,12 @@
         }
 
         document.getElementById('btn-start').addEventListener('click', () => {
+            // Authorize sounds
+            [sndCorrect, sndIncorrect, sndFanfare].forEach(s => { s.play(); s.pause(); });
             setupGame();
             showScreen('game-screen');
             startTrial();
         });
-
     </script>
 </body>
 </html>
