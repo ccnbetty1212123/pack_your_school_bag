@@ -9,23 +9,24 @@
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; font-family: 'Arial', sans-serif; background-color: var(--bg-color); position: fixed; touch-action: none; }
         
-        #orientation-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #333; color: white; display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 2000; }
+        #orientation-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #333; color: white; display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 2000; text-align: center; }
         @media screen and (orientation: portrait) { #orientation-overlay { display: flex; } }
 
         #game-container { display: none; width: 100vw; height: 100dvh; position: relative; }
         
+        /* Layout */
         #school-bag-container { position: absolute; left: 5%; top: 15%; width: 35%; height: 75%; display: flex; align-items: center; justify-content: center; pointer-events: none; }
         #school-bag-img { width: 100%; height: 100%; object-fit: contain; }
 
         #items-grid { position: absolute; right: 5%; top: 15%; width: 50%; height: 75%; display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(2, 1fr); gap: 15px; }
         .item-slot { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.03); border-radius: 15px; }
 
-        .item { width: 100px; height: 120px; cursor: grab; touch-action: none; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100; background: white; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        .item { width: 100px; height: 120px; cursor: grab; touch-action: none; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100; background: white; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); transition: transform 0.1s; }
         .item img { width: 70px; height: 70px; object-fit: contain; pointer-events: none; }
         .item span { font-size: 14px; font-weight: bold; margin-top: 5px; pointer-events: none; }
 
         .dragging { opacity: 0.8; transform: scale(1.1); z-index: 1000 !important; position: fixed !important; pointer-events: none; }
-        .returning { transition: all 0.3s ease-out; }
+        .returning { transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
 
         #welcome-page, #congrats-page { position: fixed; width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; background: var(--bg-color); z-index: 1500; }
         .btn-start { padding: 25px 80px; font-size: 32px; cursor: pointer; background: #4caf50; color: white; border: none; border-radius: 60px; font-weight: bold; }
@@ -34,7 +35,7 @@
 </head>
 <body>
 
-    <div id="orientation-overlay"><h2>🔄 請轉橫螢幕遊玩</h2></div>
+    <div id="orientation-overlay"><h2>🔄 請轉橫螢幕遊玩<br>Please Rotate to Landscape</h2></div>
 
     <div id="welcome-page">
         <h1>🎒 上學小幫手</h1>
@@ -50,7 +51,8 @@
     </div>
 
     <div id="congrats-page" style="display:none;">
-        <h1>🎉 完成挑戰！你好叻呀！</h1>
+        <h1>🎉 你好叻呀！</h1>
+        <p>順利完成 10 個挑戰！</p>
         <button class="btn-start" onclick="location.reload()">再玩一次</button>
     </div>
 
@@ -68,12 +70,13 @@
         let currentTarget = null;
         let lastTarget = null;
         let history = [];
-        let isProcessing = false;
+        let isTrialMoving = false; // Prevents overlapping trial starts
 
         function initGame() {
-            // iOS Audio Activation
+            // iOS Audio Trigger (Must happen on click)
             const unlock = new Audio('assets/audio/correct.mp3');
-            unlock.play().then(() => { unlock.pause(); unlock.currentTime = 0; }).catch(()=>{});
+            unlock.volume = 0;
+            unlock.play().then(() => { unlock.pause(); }).catch(()=>{});
 
             document.getElementById('welcome-page').style.display = 'none';
             document.getElementById('game-container').style.display = 'block';
@@ -94,12 +97,11 @@
         }
 
         function playSound(file) {
-            const a = new Audio(`assets/audio/${file}?cb=${Date.now()}`);
-            a.play().catch(e => console.log("Audio block:", file));
+            const a = new Audio(`assets/audio/${file}`);
+            a.play().catch(e => console.error("Audio block:", file));
         }
 
         function nextTrial() {
-            isProcessing = false;
             if (trials >= 10) {
                 document.getElementById('game-container').style.display = 'none';
                 document.getElementById('congrats-page').style.display = 'flex';
@@ -107,6 +109,7 @@
                 return;
             }
 
+            // Logic for selecting next word (no consecutive repeats, all used at least once)
             let available = words.filter(w => w.id !== (lastTarget ? lastTarget.id : null));
             if (trials < 6) available = available.filter(w => !history.includes(w.id));
             
@@ -116,69 +119,7 @@
             
             document.getElementById('trial-count').innerText = trials + 1;
             playSound(`voice_${currentTarget.id}.mp3`);
+            isTrialMoving = false; 
         }
 
         function setupDrag(el, slot) {
-            let startX, startY;
-
-            el.addEventListener('touchstart', (e) => {
-                if (isProcessing) return;
-                const t = e.touches[0];
-                const rect = el.getBoundingClientRect();
-                startX = t.clientX - rect.left;
-                startY = t.clientY - rect.top;
-                
-                el.style.width = rect.width + 'px';
-                el.style.height = rect.height + 'px';
-                el.style.left = rect.left + 'px';
-                el.style.top = rect.top + 'px';
-                el.classList.add('dragging');
-            });
-
-            window.addEventListener('touchmove', (e) => {
-                if (!el.classList.contains('dragging')) return;
-                const t = e.touches[0];
-                el.style.left = (t.clientX - startX) + 'px';
-                el.style.top = (t.clientY - startY) + 'px';
-            }, { passive: false });
-
-            window.addEventListener('touchend', () => {
-                if (!el.classList.contains('dragging')) return;
-                el.classList.remove('dragging');
-                
-                const bag = document.getElementById('school-bag-img').getBoundingClientRect();
-                const item = el.getBoundingClientRect();
-
-                const isOver = !(item.right < bag.left || item.left > bag.right || 
-                                 item.bottom < bag.top || item.top > bag.bottom);
-
-                if (isOver && el.id === currentTarget.id) {
-                    isProcessing = true; // Lock dragging until next trial
-                    playSound('correct.mp3');
-                    trials++;
-                    resetItem(el, slot);
-                    setTimeout(nextTrial, 1500);
-                } else {
-                    if (isOver) playSound('incorrect.mp3');
-                    resetItem(el, slot);
-                }
-            });
-        }
-
-        function resetItem(el, slot) {
-            el.classList.add('returning');
-            const slotRect = slot.getBoundingClientRect();
-            el.style.left = slotRect.left + 'px';
-            el.style.top = slotRect.top + 'px';
-
-            setTimeout(() => {
-                el.classList.remove('returning');
-                el.style.position = 'relative';
-                el.style.left = '0';
-                el.style.top = '0';
-                slot.appendChild(el);
-            }, 400);
-        }
-    </script>
-</body>
-</html>
