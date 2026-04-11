@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>上學小幫手</title>
+    <title>中文詞彙練習</title>
     <style>
         :root { --bg: #e0f7fa; --btn: #ff6b6b; }
         body, html { 
             margin: 0; padding: 0; width: 100vw; height: 100vh; 
             overflow: hidden; font-family: sans-serif; background: var(--bg); 
-            touch-action: none; /* Prevents pull-to-refresh and scrolling */
+            touch-action: none; 
         }
         #orientation-overlay { 
             position: fixed; inset: 0; background: #333; color: white; 
@@ -21,27 +21,32 @@
         .screen { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
         .hidden { display: none !important; }
         
-        button { padding: 15px 40px; font-size: 28px; cursor: pointer; background: var(--btn); color: white; border: none; border-radius: 50px; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
+        button { padding: 15px 40px; font-size: 28px; cursor: pointer; background: var(--btn); color: white; border: none; border-radius: 50px; }
         
         #game-layout { display: flex; width: 100%; height: 100%; align-items: center; justify-content: space-around; padding: 20px; box-sizing: border-box; }
         #drop-zone { flex: 1; display: flex; justify-content: center; align-items: center; }
-        #school-bag { width: 90%; max-width: 350px; pointer-events: none; transition: transform 0.2s; }
+        #school-bag { width: 90%; max-width: 320px; pointer-events: none; }
         
         #items-grid { 
             flex: 1; display: grid; 
             grid-template-columns: repeat(3, 1fr); 
             grid-template-rows: repeat(2, 1fr); 
-            gap: 20px; width: 50%; height: 70%; 
+            gap: 15px; width: 50%; height: 80%; 
         }
-        .item-container { display: flex; justify-content: center; align-items: center; position: relative; }
+        .item-container { display: flex; justify-content: center; align-items: center; }
         
         .draggable-item { 
-            width: 120px; height: 120px; object-fit: contain; 
+            width: 110px; height: 110px; object-fit: contain; 
             z-index: 10; cursor: grab; touch-action: none; 
-            user-select: none; -webkit-user-drag: none;
+            transition: transform 0.1s ease-out; /* Smooth return to grid */
         }
-        .dragging { opacity: 0.8; transform: scale(1.2) !important; z-index: 100; cursor: grabbing; }
-        #progress { position: absolute; top: 15px; font-size: 24px; font-weight: bold; color: #00796b; background: rgba(255,255,255,0.5); padding: 5px 15px; border-radius: 20px; }
+        .dragging { 
+            opacity: 0.8; 
+            z-index: 100; 
+            transition: none !important; /* No transition while following finger */
+            scale: 1.2;
+        }
+        #progress { position: absolute; top: 15px; font-size: 22px; font-weight: bold; color: #00796b; }
     </style>
 </head>
 <body>
@@ -49,22 +54,20 @@
     <div id="orientation-overlay"><h2>請將螢幕橫置以進行遊戲</h2></div>
 
     <div id="welcome-screen" class="screen">
-        <h1 style="color: #00796b; font-size: 48px;">中文詞彙練習</h1>
+        <h1 style="color: #00796b;">中文詞彙練習</h1>
         <button id="btn-start">開始遊戲</button>
     </div>
 
     <div id="game-screen" class="screen hidden">
         <div id="progress">第 <span id="current-count">1</span> / 10 題</div>
         <div id="game-layout">
-            <div id="drop-zone">
-                <img id="school-bag" src="assets/images/school_bag.png" alt="書包">
-            </div>
+            <div id="drop-zone"><img id="school-bag" src="assets/images/school_bag.png"></div>
             <div id="items-grid"></div>
         </div>
     </div>
 
     <div id="congrats-screen" class="screen hidden">
-        <h1 style="font-size: 60px; color: #ff6b6b;">太棒了！</h1>
+        <h1>太棒了！</h1>
         <button onclick="location.reload()">再玩一次</button>
     </div>
 
@@ -97,7 +100,7 @@
         function playVoice(fileName) {
             stopAllAudio();
             currentAudio = new Audio(`assets/audio/${fileName}`);
-            currentAudio.play().catch(e => console.log("Audio play blocked"));
+            currentAudio.play().catch(e => console.log("Audio blocked"));
         }
 
         function setupGame() {
@@ -120,7 +123,7 @@
             currentTarget = trials[currentTrialIndex];
             document.getElementById('current-count').innerText = currentTrialIndex + 1;
             renderGrid();
-            setTimeout(() => { playVoice(currentTarget.voice); }, 500);
+            setTimeout(() => { playVoice(currentTarget.voice); }, 300);
         }
 
         function renderGrid() {
@@ -140,17 +143,21 @@
         }
 
         function initDrag(el) {
-            let startX, startY;
-            
+            let startX = 0;
+            let startY = 0;
+
             const onStart = (e) => {
                 if(isWaiting) return;
                 const pos = e.type.includes('touch') ? e.touches[0] : e;
+                
+                // Track where the finger/mouse first touched
                 startX = pos.clientX;
                 startY = pos.clientY;
                 
                 el.classList.add('dragging');
                 if (currentAudio) currentAudio.pause();
 
+                // Attach listeners to window to ensure movement continues even if finger slides off image
                 window.addEventListener('mousemove', onMove, { passive: false });
                 window.addEventListener('touchmove', onMove, { passive: false });
                 window.addEventListener('mouseup', onEnd);
@@ -159,49 +166,48 @@
 
             const onMove = (e) => {
                 if (!el.classList.contains('dragging')) return;
+                
+                // Prevent screen scrolling
                 if (e.cancelable) e.preventDefault();
-                
+
                 const pos = e.type.includes('touch') ? e.touches[0] : e;
-                const dx = pos.clientX - startX;
-                const dy = pos.clientY - startY;
                 
-                el.style.transform = `translate(${dx}px, ${dy}px)`;
+                // Calculate how far the finger has moved from the start
+                const currentX = pos.clientX - startX;
+                const currentY = pos.clientY - startY;
+
+                // Move the image exactly that distance
+                el.style.transform = `translate(${currentX}px, ${currentY}px)`;
             };
 
             const onEnd = () => {
                 if (!el.classList.contains('dragging')) return;
                 el.classList.remove('dragging');
+
+                const bag = document.getElementById('school-bag').getBoundingClientRect();
+                const rect = el.getBoundingClientRect();
                 
-                const bagRect = document.getElementById('school-bag').getBoundingClientRect();
-                const itemRect = el.getBoundingClientRect();
+                // Check if the center of the item is over the bag
+                const centerX = rect.left + rect.width / 2;
+                const centerY = rect.top + rect.height / 2;
 
-                // Calculate center point of the dragged item
-                const itemCenterX = itemRect.left + itemRect.width / 2;
-                const itemCenterY = itemRect.top + itemRect.height / 2;
-
-                // Check if center is within bag boundaries
                 const hit = (
-                    itemCenterX > bagRect.left &&
-                    itemCenterX < bagRect.right &&
-                    itemCenterY > bagRect.top &&
-                    itemCenterY < bagRect.bottom
+                    centerX > bag.left && centerX < bag.right &&
+                    centerY > bag.top && centerY < bag.bottom
                 );
 
                 if (hit && el.dataset.id === currentTarget.id) {
                     isWaiting = true;
-                    el.style.transition = 'opacity 0.3s, transform 0.3s';
-                    el.style.opacity = '0';
-                    el.style.transform = `translate(${itemRect.left - startX}px, ${itemRect.top - startY}px) scale(0.5)`;
-                    
+                    el.style.opacity = '0'; // Disappear into bag
                     sndCorrect.play();
                     currentTrialIndex++;
                     setTimeout(startTrial, 1500);
                 } else {
                     if (hit) sndIncorrect.play();
-                    el.style.transform = 'translate(0, 0)';
+                    el.style.transform = 'translate(0, 0)'; // Snap back
                 }
 
-                // Cleanup listeners
+                // Clean up listeners
                 window.removeEventListener('mousemove', onMove);
                 window.removeEventListener('touchmove', onMove);
                 window.removeEventListener('mouseup', onEnd);
@@ -218,10 +224,7 @@
         }
 
         document.getElementById('btn-start').addEventListener('click', () => {
-            // Unlock audio for iOS/Chrome
-            [sndCorrect, sndIncorrect, sndFanfare].forEach(s => {
-                s.play().then(() => { s.pause(); s.currentTime = 0; }).catch(() => {});
-            });
+            [sndCorrect, sndIncorrect, sndFanfare].forEach(s => { s.play(); s.pause(); });
             setupGame();
             showScreen('game-screen');
             startTrial();
