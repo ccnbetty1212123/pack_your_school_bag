@@ -2,266 +2,233 @@
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>認識日常交通工具</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>中文詞彙練習</title>
     <style>
-        :root { 
-            --bg: #f0f4f8; 
-            --btn: #4caf50; 
-            --btn-hover: #45a049;
-            --text: #2e7d32; 
-        }
-
+        :root { --bg: #e0f7fa; --btn: #ff6b6b; }
         body, html { 
-            margin: 0; padding: 0; width: 100%; height: 100%; 
-            overflow: hidden; font-family: 'PingFang HK', 'Helvetica Neue', Helvetica, Arial, sans-serif; 
-            background: var(--bg); touch-action: manipulation;
+            margin: 0; padding: 0; width: 100vw; height: 100vh; 
+            overflow: hidden; font-family: sans-serif; background: var(--bg); 
+            touch-action: none; 
         }
-
-        /* Preparation & Orientation Overlay */
-        #prep-screen {
-            position: fixed; inset: 0; background: white; 
+        #orientation-overlay { 
+            position: fixed; inset: 0; background: #333; color: white; 
             display: flex; flex-direction: column; align-items: center; 
-            justify-content: center; z-index: 10000; text-align: center;
-            padding: 20px;
+            justify-content: center; z-index: 9999; text-align: center; 
         }
-
-        .orientation-icon {
-            font-size: 60px; margin-bottom: 20px;
-            animation: rotateDevice 2s infinite ease-in-out;
-        }
-
-        @keyframes rotateDevice {
-            0% { transform: rotate(0deg); }
-            50% { transform: rotate(-90deg); }
-            100% { transform: rotate(0deg); }
-        }
-
-        /* Screen Management */
+        @media screen and (orientation: landscape) { #orientation-overlay { display: none; } }
+        
         .screen { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
         .hidden { display: none !important; }
-
-        /* Logic to show/hide based on orientation */
-        @media screen and (orientation: portrait) {
-            #game-content { display: none; }
-            #prep-screen { display: flex; }
-        }
-
-        @media screen and (orientation: landscape) {
-            #prep-screen { display: none; }
-            #game-content { display: block; }
-        }
-
-        /* Buttons */
-        button { 
-            padding: 18px 60px; font-size: 26px; cursor: pointer; 
-            background: var(--btn); color: white; border: none; 
-            border-radius: 50px; box-shadow: 0 6px 15px rgba(0,0,0,0.15);
-            transition: transform 0.1s, background 0.2s;
-            -webkit-tap-highlight-color: transparent;
-            font-weight: bold;
-        }
-        button:active { transform: scale(0.95); background: var(--btn-hover); }
-
-        /* Game Grid */
+        
+        button { padding: 15px 40px; font-size: 28px; cursor: pointer; background: var(--btn); color: white; border: none; border-radius: 50px; }
+        
+        #game-layout { display: flex; width: 100%; height: 100%; align-items: center; justify-content: space-around; padding: 20px; box-sizing: border-box; }
+        #drop-zone { flex: 1; display: flex; justify-content: center; align-items: center; }
+        #school-bag { width: 90%; max-width: 320px; pointer-events: none; }
+        
         #items-grid { 
-            display: grid; 
+            flex: 1; display: grid; 
             grid-template-columns: repeat(3, 1fr); 
             grid-template-rows: repeat(2, 1fr); 
-            gap: 20px; 
-            width: 85%; height: 75%; 
-            margin-top: 30px;
+            gap: 15px; width: 50%; height: 80%; 
         }
-        .item-container { 
-            display: flex; justify-content: center; align-items: center; 
-            background: white; border-radius: 20px; 
-            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-            cursor: pointer; overflow: hidden; position: relative;
-        }
-        .transport-img { 
-            width: 80%; height: 80%; 
-            object-fit: contain; 
-            transition: transform 0.2s; 
-        }
-
-        /* Animation Classes */
-        /* Drive Right (Default) */
-        .drive-out { transform: translateX(100vw) !important; opacity: 0; transition: transform 0.8s ease-in, opacity 0.5s; }
-        /* Drive Left (Bus, Tram, Minibus) */
-        .drive-out-left { transform: translateX(-100vw) !important; opacity: 0; transition: transform 0.8s ease-in, opacity 0.5s; }
-        /* Fly Away */
-        .fly-out { transform: translate(100vw, -100vh) rotate(-15deg) !important; opacity: 0; transition: transform 0.8s ease-in, opacity 0.5s; }
+        .item-container { display: flex; justify-content: center; align-items: center; }
         
-        .shake { animation: shake 0.4s; }
-        @keyframes shake {
-            0%, 100% { transform: translateX(0); }
-            25% { transform: translateX(-12px); }
-            75% { transform: translateX(12px); }
+        .draggable-item { 
+            width: 110px; height: 110px; object-fit: contain; 
+            z-index: 10; cursor: grab; touch-action: none; 
+            transition: transform 0.1s ease-out; /* Smooth return to grid */
         }
-
-        #progress { position: absolute; top: 15px; font-size: 22px; font-weight: bold; color: var(--text); }
+        .dragging { 
+            opacity: 0.8; 
+            z-index: 100; 
+            transition: none !important; /* No transition while following finger */
+            scale: 1.2;
+        }
+        #progress { position: absolute; top: 15px; font-size: 22px; font-weight: bold; color: #00796b; }
     </style>
 </head>
 <body>
 
-    <div id="prep-screen">
-        <div class="orientation-icon">📱🔄</div>
-        <h2 style="color: var(--text); margin-bottom: 5px;">請將螢幕橫置以進行遊戲</h2>
-        <h3 style="color: #666; font-weight: normal; margin-bottom: 30px;">Please rotate your device to landscape</h3>
-        <button id="btn-ready">開始 / START</button>
+    <div id="orientation-overlay"><h2>請將螢幕橫置以進行遊戲</h2></div>
+
+    <div id="welcome-screen" class="screen">
+        <h1 style="color: #00796b;">中文詞彙練習</h1>
+        <button id="btn-start">開始遊戲</button>
     </div>
 
-    <div id="game-content">
-        <div id="welcome-screen" class="screen">
-            <h1 style="color: var(--text); font-size: 48px; margin-bottom: 10px;">交通工具練習</h1>
-            <p style="font-size: 22px; color: #555; margin-bottom: 40px;">聽一聽，選出正確的交通工具</p>
-            <button id="btn-start">進入練習</button>
-        </div>
-
-        <div id="game-screen" class="screen hidden">
-            <div id="progress">第 <span id="current-count">1</span> / 10 題</div>
+    <div id="game-screen" class="screen hidden">
+        <div id="progress">第 <span id="current-count">1</span> / 10 題</div>
+        <div id="game-layout">
+            <div id="drop-zone"><img id="school-bag" src="assets/images/school_bag.png"></div>
             <div id="items-grid"></div>
         </div>
+    </div>
 
-        <div id="congrats-screen" class="screen hidden">
-            <div style="font-size: 100px; margin-bottom: 20px;">🎉</div>
-            <h1 style="color: var(--text); font-size: 40px;">恭喜你完成練習！</h1>
-            <button onclick="location.reload()">再玩一次 / Play Again</button>
-        </div>
+    <div id="congrats-screen" class="screen hidden">
+        <h1>太棒了！</h1>
+        <button onclick="location.reload()">再玩一次</button>
     </div>
 
     <script>
-        // 1. Configuration: Added 'dir' property for left-facing vehicles
-        const transportItems = [
-            { id: 'bus', img: 'bus.png', voice: 'bus.mp3', type: 'drive', dir: 'left' },
-            { id: 'tram', img: 'tram.png', voice: 'tram.mp3', type: 'drive', dir: 'left' },
-            { id: 'minibus', img: 'minibus.png', voice: 'minibus.mp3', type: 'drive', dir: 'left' },
-            { id: 'taxi', img: 'taxi.png', voice: 'taxi.mp3', type: 'drive', dir: 'right' },
-            { id: 'mtr', img: 'mtr.png', voice: 'mtr.mp3', type: 'drive', dir: 'right' },
-            { id: 'plane', img: 'plane.png', voice: 'plane.mp3', type: 'fly', dir: 'right' }
+        const items = [
+            { id: 'bag', img: 'homework_bag.jpg', voice: 'voice_bag.mp3' },
+            { id: 'pencils', img: 'colored_pencils.png', voice: 'voice_pens.mp3' },
+            { id: 'scissors', img: 'scissors.png', voice: 'voice_scissors.mp3' },
+            { id: 'handbook', img: 'handbook.jpg', voice: 'voice_handbook.mp3' },
+            { id: 'eraser', img: 'eraser.png', voice: 'voice_eraser.mp3' },
+            { id: 'pencil', img: 'pencil.png', voice: 'voice_pencil.mp3' }
         ];
 
         let trials = [];
         let currentTrialIndex = 0;
-        let isLocked = false;
+        let currentTarget = null;
+        let isWaiting = false;
         let currentAudio = null;
 
-        // Sound Effects
         const sndCorrect = new Audio('assets/audio/correct.mp3');
         const sndIncorrect = new Audio('assets/audio/incorrect.mp3');
         const sndFanfare = new Audio('assets/audio/congrats_fanfare.mp3');
 
-        // Critical for iOS: Unlock audio context via user gesture
-        function unlockAudio() {
-            const silentSounds = [sndCorrect, sndIncorrect, sndFanfare];
-            silentSounds.forEach(s => {
-                s.play().then(() => { s.pause(); s.currentTime = 0; }).catch(e => console.log("Audio unlock waiting..."));
-            });
+        function stopAllAudio() {
+            if (currentAudio) { currentAudio.pause(); currentAudio.currentTime = 0; }
+            sndCorrect.pause(); sndCorrect.currentTime = 0;
+            sndIncorrect.pause(); sndIncorrect.currentTime = 0;
         }
 
-        // Event Listeners
-        document.getElementById('btn-ready').addEventListener('click', unlockAudio);
-        
-        document.getElementById('btn-start').addEventListener('click', () => {
-            unlockAudio(); // Double ensure for iOS
-            setupGame();
-            showScreen('game-screen');
-            startTrial();
-        });
+        function playVoice(fileName) {
+            stopAllAudio();
+            currentAudio = new Audio(`assets/audio/${fileName}`);
+            currentAudio.play().catch(e => console.log("Audio blocked"));
+        }
 
-        // Initialize 10 trials
         function setupGame() {
-            let deck = [...transportItems].sort(() => Math.random() - 0.5);
-            trials = [...deck];
+            let shuffled = [...items].sort(() => Math.random() - 0.5);
+            trials = [...shuffled];
             while (trials.length < 10) {
-                let lastItem = trials[trials.length - 1];
-                let possible = transportItems.filter(i => i.id !== lastItem.id);
-                trials.push(possible[Math.floor(Math.random() * possible.length)]);
+                let last = trials[trials.length - 1];
+                let options = items.filter(i => i.id !== last.id);
+                trials.push(options[Math.floor(Math.random() * options.length)]);
             }
         }
 
-        // Start a single round
         function startTrial() {
             if (currentTrialIndex >= 10) {
                 showScreen('congrats-screen');
                 sndFanfare.play();
                 return;
             }
-            isLocked = false;
+            isWaiting = false;
+            currentTarget = trials[currentTrialIndex];
             document.getElementById('current-count').innerText = currentTrialIndex + 1;
             renderGrid();
-            
-            // Delay voice slightly to let grid load
-            setTimeout(() => { playVoice(trials[currentTrialIndex].voice); }, 600);
+            setTimeout(() => { playVoice(currentTarget.voice); }, 300);
         }
 
-        // Create the 3x2 grid
         function renderGrid() {
             const grid = document.getElementById('items-grid');
             grid.innerHTML = '';
-            
-            // Shuffle display order
-            const displayOrder = [...transportItems].sort(() => Math.random() - 0.5);
-            
-            displayOrder.forEach(item => {
+            [...items].sort(() => Math.random() - 0.5).forEach(item => {
                 const container = document.createElement('div');
                 container.className = 'item-container';
-                container.onclick = () => handleChoice(item, container);
-                
                 const img = document.createElement('img');
                 img.src = `assets/images/${item.img}`;
-                img.className = 'transport-img';
-                img.alt = item.id;
-                
+                img.className = 'draggable-item';
+                img.dataset.id = item.id;
+                initDrag(img);
                 container.appendChild(img);
                 grid.appendChild(container);
             });
         }
 
-        // Interaction logic
-        function handleChoice(item, element) {
-            if (isLocked) return;
-            
-            const target = trials[currentTrialIndex];
-            if (item.id === target.id) {
-                isLocked = true;
+        function initDrag(el) {
+            let startX = 0;
+            let startY = 0;
+
+            const onStart = (e) => {
+                if(isWaiting) return;
+                const pos = e.type.includes('touch') ? e.touches[0] : e;
+                
+                // Track where the finger/mouse first touched
+                startX = pos.clientX;
+                startY = pos.clientY;
+                
+                el.classList.add('dragging');
                 if (currentAudio) currentAudio.pause();
-                sndCorrect.play();
+
+                // Attach listeners to window to ensure movement continues even if finger slides off image
+                window.addEventListener('mousemove', onMove, { passive: false });
+                window.addEventListener('touchmove', onMove, { passive: false });
+                window.addEventListener('mouseup', onEnd);
+                window.addEventListener('touchend', onEnd);
+            };
+
+            const onMove = (e) => {
+                if (!el.classList.contains('dragging')) return;
                 
-                // Determine animation based on 'type' and 'dir'
-                const img = element.querySelector('.transport-img');
-                let animClass = 'drive-out'; // Default Right
+                // Prevent screen scrolling
+                if (e.cancelable) e.preventDefault();
+
+                const pos = e.type.includes('touch') ? e.touches[0] : e;
                 
-                if (item.type === 'fly') {
-                    animClass = 'fly-out';
-                } else if (item.dir === 'left') {
-                    animClass = 'drive-out-left';
+                // Calculate how far the finger has moved from the start
+                const currentX = pos.clientX - startX;
+                const currentY = pos.clientY - startY;
+
+                // Move the image exactly that distance
+                el.style.transform = `translate(${currentX}px, ${currentY}px)`;
+            };
+
+            const onEnd = () => {
+                if (!el.classList.contains('dragging')) return;
+                el.classList.remove('dragging');
+
+                const bag = document.getElementById('school-bag').getBoundingClientRect();
+                const rect = el.getBoundingClientRect();
+                
+                // Check if the center of the item is over the bag
+                const centerX = rect.left + rect.width / 2;
+                const centerY = rect.top + rect.height / 2;
+
+                const hit = (
+                    centerX > bag.left && centerX < bag.right &&
+                    centerY > bag.top && centerY < bag.bottom
+                );
+
+                if (hit && el.dataset.id === currentTarget.id) {
+                    isWaiting = true;
+                    el.style.opacity = '0'; // Disappear into bag
+                    sndCorrect.play();
+                    currentTrialIndex++;
+                    setTimeout(startTrial, 1500);
+                } else {
+                    if (hit) sndIncorrect.play();
+                    el.style.transform = 'translate(0, 0)'; // Snap back
                 }
-                
-                img.classList.add(animClass);
-                
-                currentTrialIndex++;
-                setTimeout(startTrial, 1300);
-            } else {
-                sndIncorrect.currentTime = 0;
-                sndIncorrect.play();
-                element.classList.add('shake');
-                setTimeout(() => element.classList.remove('shake'), 400);
-            }
+
+                // Clean up listeners
+                window.removeEventListener('mousemove', onMove);
+                window.removeEventListener('touchmove', onMove);
+                window.removeEventListener('mouseup', onEnd);
+                window.removeEventListener('touchend', onEnd);
+            };
+
+            el.addEventListener('mousedown', onStart);
+            el.addEventListener('touchstart', onStart, { passive: false });
         }
 
-        // Audio helper
-        function playVoice(fileName) {
-            if (currentAudio) { currentAudio.pause(); }
-            currentAudio = new Audio(`assets/audio/${fileName}`);
-            currentAudio.play().catch(e => console.error("Playback blocked. Tap Start button first."));
-        }
-
-        // Screen switching
         function showScreen(id) {
             document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
             document.getElementById(id).classList.remove('hidden');
         }
+
+        document.getElementById('btn-start').addEventListener('click', () => {
+            [sndCorrect, sndIncorrect, sndFanfare].forEach(s => { s.play(); s.pause(); });
+            setupGame();
+            showScreen('game-screen');
+            startTrial();
+        });
     </script>
 </body>
 </html>
